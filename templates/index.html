@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>livebot Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-full overflow-hidden bg-gradient-to-br from-indigo-50 via-white to-pink-50">
+    <!-- Background accents -->
+    <div class="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
+        <div class="absolute -top-40 -left-32 w-[520px] h-[520px] rounded-full blur-3xl opacity-50 bg-gradient-to-br from-fuchsia-300 via-pink-300 to-rose-300"></div>
+        <div class="absolute -bottom-40 -right-32 w-[560px] h-[560px] rounded-full blur-3xl opacity-50 bg-gradient-to-tr from-indigo-300 via-sky-300 to-cyan-200"></div>
+    </div>
+
+    <div class="h-screen flex flex-col items-center p-4">
+        <header class="w-full max-w-3xl flex items-center justify-between mb-4">
+            <h1 class="text-2xl font-bold text-slate-800">💬 Chatbot</h1>
+            <span class="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700">Chatbot</span>
+        </header>
+
+        {% if error_message %}
+        <div class="w-full max-w-3xl mb-4 p-3 rounded bg-yellow-100 text-yellow-900 border border-yellow-300">
+            {{ error_message }}
+        </div>
+        {% endif %}
+
+        <main class="w-full max-w-3xl flex-1 min-h-0 flex flex-col">
+            <div id="messages" class="flex-1 min-h-0 overflow-y-auto rounded-2xl bg-white/80 backdrop-blur border border-slate-200 shadow-sm p-4 space-y-4">
+                <div class="flex items-start gap-3">
+                    <div class="shrink-0 w-8 h-8 rounded-full bg-indigo-600 text-white grid place-items-center">B</div>
+                    <div class="bg-slate-100 text-slate-800 rounded-2xl rounded-tl-none px-4 py-3 max-w-[80%]">
+                        Hi! Ask me to search your Google sheet or type a word
+                         
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <div class="relative flex items-center gap-2">
+                    <input id="chatInput" type="text" placeholder="Type your question and press Enter..."
+                           class="flex-1 border border-slate-300 rounded-xl px-4 py-3 outline-none focus:ring-4 focus:ring-indigo-200 bg-white shadow-sm">
+                    <button id="sendBtn" class="px-4 py-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 shadow-sm">Send</button>
+                </div>
+                <div class="flex items-center justify-between mt-2 text-xs text-slate-500">
+                    <span>Tips: try searching by name, email, or any keyword that appears in the sheet.</span>
+                    <span>Max results: {{ (MAX_SEARCH_RESULTS | default(25)) if MAX_SEARCH_RESULTS is defined else 25 }}</span>
+                </div>
+            </div>
+        </main>
+        </div>
+
+    <script>
+    const messagesEl = document.getElementById("messages");
+    const inputEl = document.getElementById("chatInput");
+    const sendBtn = document.getElementById("sendBtn");
+
+    function scrollToBottom() {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function renderUserMessage(text) {
+        const row = document.createElement("div");
+        row.className = "flex items-start gap-3 justify-end";
+        const bubble = document.createElement("div");
+        bubble.className = "bg-indigo-600 text-white rounded-2xl rounded-tr-none px-4 py-3 max-w-[80%]";
+        bubble.textContent = text;
+        row.appendChild(bubble);
+        messagesEl.appendChild(row);
+    }
+
+    function renderBotTyping() {
+        const row = document.createElement("div");
+        row.className = "flex items-start gap-3";
+        const avatar = document.createElement("div");
+        avatar.className = "shrink-0 w-8 h-8 rounded-full bg-indigo-600 text-white grid place-items-center";
+        avatar.textContent = "B";
+        const bubble = document.createElement("div");
+        bubble.className = "bg-slate-100 text-slate-800 rounded-2xl rounded-tl-none px-4 py-3 max-w-[80%]";
+        bubble.innerHTML = '<span class="inline-flex gap-1 items-center"><span class="w-2 h-2 rounded-full bg-slate-400 animate-bounce"></span><span class="w-2 h-2 rounded-full bg-slate-400 animate-bounce [animation-delay:0.1s]"></span><span class="w-2 h-2 rounded-full bg-slate-400 animate-bounce [animation-delay:0.2s]"></span></span>';
+        row.appendChild(avatar);
+        row.appendChild(bubble);
+        messagesEl.appendChild(row);
+        return row;
+    }
+
+    function renderBotMessage(nodeContentBuilder) {
+        const row = document.createElement("div");
+        row.className = "flex items-start gap-3";
+        const avatar = document.createElement("div");
+        avatar.className = "shrink-0 w-8 h-8 rounded-full bg-indigo-600 text-white grid place-items-center";
+        avatar.textContent = "B";
+        const bubble = document.createElement("div");
+        bubble.className = "bg-slate-100 text-slate-800 rounded-2xl rounded-tl-none px-4 py-3 max-w-[80%]";
+        const content = nodeContentBuilder();
+        bubble.appendChild(content);
+        row.appendChild(avatar);
+        row.appendChild(bubble);
+        messagesEl.appendChild(row);
+    }
+
+    function buildResultsContent(headers, rows) {
+        const wrapper = document.createElement("div");
+        if (!rows.length) {
+            const p = document.createElement("p");
+            p.className = "text-slate-700";
+            p.textContent = "I couldn't find any matching rows.";
+            wrapper.appendChild(p);
+            return wrapper;
+        }
+        const note = document.createElement("div");
+        note.className = "text-xs text-slate-500 mb-2";
+        note.textContent = `Found ${rows.length} result${rows.length === 1 ? '' : 's'}.`;
+        wrapper.appendChild(note);
+
+        // Rounded container to keep corners clean inside the chat bubble
+        const card = document.createElement("div");
+        card.className = "rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm";
+
+        const table = document.createElement("table");
+        table.className = "w-full text-sm border-separate border-spacing-0";
+        const thead = document.createElement("thead");
+        thead.className = "bg-slate-50";
+        const trHead = document.createElement("tr");
+        headers.forEach(h => {
+            const th = document.createElement("th");
+            th.className = "text-left px-3 py-2 border-b border-slate-200";
+            th.textContent = h;
+            trHead.appendChild(th);
+        });
+        thead.appendChild(trHead);
+        table.appendChild(thead);
+        const tbody = document.createElement("tbody");
+        rows.forEach(r => {
+            const tr = document.createElement("tr");
+            tr.className = "hover:bg-slate-50";
+            r.forEach(c => {
+                const td = document.createElement("td");
+                td.className = "px-3 py-2 border-t border-slate-100";
+                td.textContent = c;
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        card.appendChild(table);
+        wrapper.appendChild(card);
+        return wrapper;
+    }
+
+    async function askSheet(query) {
+        const typing = renderBotTyping();
+        scrollToBottom();
+        try {
+            const url = new URL(window.location.origin + "/search");
+            url.searchParams.set("q", query);
+            const res = await fetch(url, { cache: "no-store" });
+            const json = res.ok ? await res.json() : { headers: [], rows: [] };
+            typing.remove();
+            renderBotMessage(() => buildResultsContent(json.headers || [], json.rows || []));
+            scrollToBottom();
+        } catch (e) {
+            typing.remove();
+            renderBotMessage(() => {
+                const p = document.createElement("p");
+                p.className = "text-red-600";
+                p.textContent = "Something went wrong fetching results.";
+                return p;
+            });
+            scrollToBottom();
+        }
+    }
+
+    function handleSend() {
+        const text = (inputEl.value || "").trim();
+        if (!text) return;
+        renderUserMessage(text);
+        inputEl.value = "";
+        scrollToBottom();
+        askSheet(text);
+    }
+
+    inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+        }
+    });
+    sendBtn.addEventListener("click", handleSend);
+
+    // Auto-scroll when new messages are added and on resize/load
+    const observer = new MutationObserver(() => {
+        requestAnimationFrame(scrollToBottom);
+    });
+    observer.observe(messagesEl, { childList: true, subtree: true });
+    </script>
+</body>
+</html>
