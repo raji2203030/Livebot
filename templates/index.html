@@ -16,7 +16,10 @@
     <div class="h-screen flex flex-col items-center p-4">
         <header class="w-full max-w-3xl flex items-center justify-between mb-4">
             <h1 class="text-2xl font-bold text-slate-800">💬 Chatbot</h1>
-            <span class="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700">Chatbot</span>
+            <div class="flex items-center gap-2">
+                <button id="clearBtn" class="text-xs px-3 py-1 rounded-full bg-red-100 text-red-700 hover:bg-red-200 transition-colors">Clear Chat</button>
+                <span class="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700">Chatbot</span>
+            </div>
         </header>
 
         {% if error_message %}
@@ -54,6 +57,7 @@
     const messagesEl = document.getElementById("messages");
     const inputEl = document.getElementById("chatInput");
     const sendBtn = document.getElementById("sendBtn");
+    const clearBtn = document.getElementById("clearBtn");
 
     function scrollToBottom() {
         messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -180,6 +184,29 @@
         askSheet(text);
     }
 
+    function clearChat() {
+        // Keep only the initial bot message
+        const initialMessage = messagesEl.querySelector('.flex.items-start.gap-3');
+        messagesEl.innerHTML = '';
+        if (initialMessage) {
+            messagesEl.appendChild(initialMessage);
+        } else {
+            // If no initial message found, create one
+            const row = document.createElement("div");
+            row.className = "flex items-start gap-3";
+            const avatar = document.createElement("div");
+            avatar.className = "shrink-0 w-8 h-8 rounded-full bg-indigo-600 text-white grid place-items-center";
+            avatar.textContent = "B";
+            const bubble = document.createElement("div");
+            bubble.className = "bg-slate-100 text-slate-800 rounded-2xl rounded-tl-none px-4 py-3 max-w-[80%]";
+            bubble.textContent = "Hi! Ask me to search your Google sheet or type a word";
+            row.appendChild(avatar);
+            row.appendChild(bubble);
+            messagesEl.appendChild(row);
+        }
+        scrollToBottom();
+    }
+
     inputEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
@@ -187,6 +214,7 @@
         }
     });
     sendBtn.addEventListener("click", handleSend);
+    clearBtn.addEventListener("click", clearChat);
 
     // Auto-scroll when new messages are added and on resize/load
     const observer = new MutationObserver(() => {
