@@ -6,7 +6,7 @@ import time
 
 app = Flask(
     __name__,
-    template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates"),
+    template_folder="templates",
 )
 
 # CONFIG
